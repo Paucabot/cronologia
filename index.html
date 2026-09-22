@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<title>Eix temporal de l'univers</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f5f7fa;color:#172033;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow:hidden}
+.page{width:100vw;height:100vh;display:flex;flex-direction:column}
+header{padding:24px 32px 10px}
+h1{margin:0;font-size:26px;font-weight:650}
+.timeline-area{flex:1;display:flex;align-items:center;justify-content:center;padding:30px;overflow:hidden}
+.viewport{width:92%;height:260px;overflow:visible;position:relative;cursor:grab;touch-action:none;user-select:none}
+.viewport.dragging{cursor:grabbing}
+.timeline{position:absolute;left:0;top:40px;width:100%;height:180px;transform-origin:left top}
+.graphics{position:absolute;left:0;top:0;width:100%;height:180px;transform-origin:left top}
+.line{position:absolute;left:0;right:0;top:70px;height:4px;background:#172033;border-radius:4px}
+.tick{position:absolute;top:62px;width:2px;height:20px;background:#172033;transform:translateX(-50%)}
+.ticks{position:absolute;left:0;top:0;width:100%;height:180px;pointer-events:none}
+.labels{position:absolute;left:0;top:0;width:100%;height:180px;pointer-events:none}
+.label{position:absolute;top:92px;transform:translateX(-50%);font-size:15px;white-space:nowrap;will-change:left}
+.periods{position:absolute;left:0;top:160px;width:100%;height:42px;pointer-events:none;z-index:2}
+.period{position:absolute;height:38px;top:0;border:1px solid rgba(23,32,51,.25);border-radius:3px;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:12px;font-weight:600;white-space:nowrap}
+.events{
+    position:absolute;
+    left:0;
+    top:0;
+    width:100%;
+    height:180px;
+    overflow:visible;
+    pointer-events:all;
+    z-index:3;
+}
+.eventCircle{
+    stroke:white;
+    stroke-width:2;
+    cursor:pointer;
+    pointer-events:all;
+}
+.eventInfo{
+    position:fixed;
+    right:24px;
+    top:24px;
+    width:300px;
+    padding:18px 20px;
+    background:white;
+    border:1px solid #d8dee8;
+    border-radius:14px;
+    box-shadow:0 8px 28px rgba(23,32,51,.16);
+    z-index:20;
+    display:none;
+}
+.eventInfo h2{margin:0 0 6px;font-size:20px}
+.eventInfo p{margin:5px 0;color:#475569}
+.eventInfo .close{
+    position:absolute;
+    top:8px;
+    right:10px;
+    border:0;
+    background:none;
+    color:#64748b;
+    font-size:20px;
+    cursor:pointer;
+}
+.eventIcon{
+    fill:#172033;
+    font-size:24px;
+    font-family:"Segoe UI Symbol","Noto Sans Symbols 2",system-ui,sans-serif;
+    pointer-events:all;
+}
+
+footer{padding:15px 32px 25px;color:#64748b;font-size:14px}
+</style>
+</head>
+<body>
+<div class="page">
+<header><h1>Història de l'univers i de la vida</h1></header>
+<div class="eventInfo" id="eventInfo">
+<button class="close" id="closeInfo" aria-label="Tanca">×</button>
+<h2 id="infoTitle"></h2>
+<p id="infoAge"></p>
+<p id="infoCategory"></p>
+</div>
+<main class="timeline-area">
+<div class="viewport" id="viewport">
+<div class="timeline" id="timeline">
+<div class="graphics" id="graphics">
+<div class="line"></div>
+</div>
+<div class="ticks" id="ticks"></div>
+<div class="labels" id="labels"></div>
+<svg class="events" id="events" aria-hidden="true"></svg>
+</div>
+<div class="periods" id="periods"></div>
+</div>
+</main>
+<footer>Escala lineal · arrossega horitzontalment per moure't per la línia temporal</footer>
+</div>
+
+<script>
+const viewport = document.getElementById("viewport");
+const graphics = document.getElementById("graphics");
+const labels = document.getElementById("labels");
+const ticks = document.getElementById("ticks");
+const periodsLayer = document.getElementById("periods");
+const eventsLayer = document.getElementById("events");
+const eventInfo = document.getElementById("eventInfo");
+const infoTitle = document.getElementById("infoTitle");
+const infoAge = document.getElementById("infoAge");
+const infoCategory = document.getElementById("infoCategory");
+
+document.getElementById("closeInfo").addEventListener("click",()=>{
+    eventInfo.style.display="none";
+});
+
+const periods = [
+    {name:"Hadeà", start:4567, end:4000, color:"#f1e8ff"},
+    {name:"Arqueà", start:4000, end:2500, color:"#e8def8"},
+    {name:"Proterozoic", start:2500, end:538.8, color:"#ddd6fe"},
+    {name:"Cambrià", start:538.8, end:485.4, color:"#dbeafe"},
+    {name:"Ordovicià", start:485.4, end:443.8, color:"#dcfce7"},
+    {name:"Silurià", start:443.8, end:419.2, color:"#fef3c7"},
+    {name:"Devonià", start:419.2, end:358.9, color:"#fee2e2"},
+    {name:"Carbonífer", start:358.9, end:298.9, color:"#e0e7ff"},
+    {name:"Permià", start:298.9, end:251.9, color:"#fce7f3"},
+    {name:"Triàsic", start:251.9, end:201.4, color:"#d1fae5"},
+    {name:"Juràssic", start:201.4, end:145.0, color:"#fef3c7"},
+    {name:"Cretaci", start:145.0, end:66.0, color:"#dbeafe"},
+    {name:"Paleogen", start:66.0, end:23.03, color:"#ede9fe"},
+    {name:"Neogen", start:23.03, end:2.58, color:"#dcfce7"},
+    {name:"Quaternari", start:2.58, end:0, color:"#fee2e2"}
+];
+
+const events = [
+    {name:"Big Bang", age:13800, color:"#7c3aed", icon:"✦"},
+    {name:"Formació del Sol", age:4600, color:"#f59e0b", icon:"☀"},
+    {name:"Formació de la Terra", age:4540, color:"#2563eb", icon:"●"},
+    {name:"Primera vida", age:3800, color:"#16a34a", icon:"✣"},
+
+    {name:"Extinció Ordovicià-Silurià", age:443.8, color:"#dc2626", icon:"✕",
+     type:"Extinció massiva",
+     description:"Una de les grans crisis de biodiversitat de la història de la Terra, associada a una glaciació i a canvis del nivell de la mar."},
+
+    {name:"Extinció del Devonià", age:372, color:"#dc2626", icon:"✕",
+     type:"Extinció massiva",
+     description:"Conjunt d'episodis d'extinció que van afectar especialment els ecosistemes marins durant el Devonià tardà."},
+
+    {name:"Extinció Permià-Triàsic", age:251.9, color:"#dc2626", icon:"✕",
+     type:"Extinció massiva",
+     description:"La major de les cinc grans extincions. Va provocar una pèrdua extraordinària de biodiversitat marina i terrestre."},
+
+    {name:"Extinció Triàsic-Juràssic", age:201.4, color:"#dc2626", icon:"✕",
+     type:"Extinció massiva",
+     description:"Una extinció massiva al final del Triàsic, relacionada amb grans episodis de vulcanisme i canvis climàtics."},
+
+    {name:"Extinció Cretaci-Paleogen", age:66.0, color:"#dc2626", icon:"✕",
+     type:"Extinció massiva",
+     description:"L'extinció que marca el final del Cretaci i del Mesozoic. Va coincidir amb l'impacte de l'asteroide de Chicxulub."}
+];
+
+let zoom = 1;
+let offsetX = 0;
+
+let dragging = false;
+let dragStartX = 0;
+let offsetStart = 0;
+
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 138000;
+const AGE = 13800;
+
+function niceStep(range, pixelWidth){
+    const desiredPixels = 90;
+    const desiredCount = Math.max(2, pixelWidth / desiredPixels);
+    const rough = range / desiredCount;
+
+    const powers = Math.pow(10, Math.floor(Math.log10(rough)));
+    const choices = [1,2,5,10];
+
+    for(const n of choices){
+        const step = n * powers;
+        if(step >= rough) return step;
+    }
+    return 10 * powers;
+}
+
+function formatAge(ma){
+    if(ma >= 1000) return Math.round(ma).toLocaleString("ca-ES") + " Ma";
+    if(ma >= 1) return (Number.isInteger(ma) ? ma : ma.toFixed(1)) + " Ma";
+    if(ma >= 0.01) return ma.toFixed(2).replace(/0+$/,"").replace(/\.$/,"") + " Ma";
+    return ma.toExponential(1).replace(".",",") + " Ma";
+}
+
+function showEventInfo(event){
+    infoTitle.textContent=event.name;
+    infoAge.textContent=formatAge(event.age);
+
+    if(event.type){
+        infoCategory.textContent=event.type + ". " + event.description;
+    }else{
+        infoCategory.textContent="Esdeveniment de la història de "+
+            (event.age > 4000 ? "l'univers" : "la Terra i de la vida")+".";
+    }
+
+    eventInfo.style.display="block";
+}
+
+function clampOffset(width){
+    const contentWidth = width * zoom;
+    const minOffset = Math.min(0, width - contentWidth);
+    offsetX = Math.max(minOffset, Math.min(0, offsetX));
+}
+
+function render(){
+    const width = viewport.clientWidth;
+    clampOffset(width);
+
+    // La línia és l'únic element que es transforma.
+    graphics.style.transform =
+        `translateX(${offsetX}px) scaleX(${zoom})`;
+
+    // Calculam quin interval temporal és visible.
+    // x = 0 correspon a 13.800 Ma; x = width correspon a 0 Ma.
+    const leftContentX = (0 - offsetX) / zoom;
+    const rightContentX = (width - offsetX) / zoom;
+
+    const leftAge = AGE * (1 - leftContentX / width);
+    const rightAge = AGE * (1 - rightContentX / width);
+
+    const minAge = Math.max(0, Math.min(AGE, Math.min(leftAge,rightAge)));
+    const maxAge = Math.max(0, Math.min(AGE, Math.max(leftAge,rightAge)));
+    const range = Math.max(0.000001, maxAge - minAge);
+
+    const step = niceStep(range, width);
+    const first = Math.ceil(minAge / step) * step;
+
+    ticks.innerHTML = "";
+    labels.innerHTML = "";
+    periodsLayer.innerHTML = "";
+
+    // Períodes geològics: la seva amplada representa exactament la seva durada.
+    periods.forEach(period=>{
+        const startX = width * (1 - period.start / AGE) * zoom + offsetX;
+        const endX = width * (1 - period.end / AGE) * zoom + offsetX;
+        const left = Math.min(startX,endX);
+        const right = Math.max(startX,endX);
+
+        if(right < -20 || left > width + 20) return;
+
+        const box = document.createElement("div");
+        box.className = "period";
+        box.style.left = `${left}px`;
+        box.style.width = `${Math.max(2,right-left)}px`;
+        box.style.background = period.color;
+
+        // El nom es col·loca al centre de la part visible de la caixa.
+        // Així, amb molt zoom, no desapareix simplement perquè el centre
+        // geomètric del període hagi quedat fora de la pantalla.
+        const visibleLeft = Math.max(0, left);
+        const visibleRight = Math.min(width, right);
+        const visibleWidth = visibleRight - visibleLeft;
+
+        if(visibleWidth > 0){
+            const periodLabel = document.createElement("span");
+            periodLabel.textContent = period.name;
+            periodLabel.style.position = "absolute";
+            periodLabel.style.left = `${((visibleLeft + visibleRight) / 2) - left}px`;
+            periodLabel.style.top = "50%";
+            periodLabel.style.transform = "translate(-50%,-50%)";
+            periodLabel.style.whiteSpace = "nowrap";
+            periodLabel.style.pointerEvents = "none";
+            periodLabel.style.zIndex = "2";
+
+            // Només es redueix la mida si realment no hi cap; mai fins a
+            // desaparèixer. La caixa continua tenint la seva amplada real.
+            box.appendChild(periodLabel);
+            periodsLayer.appendChild(box);
+
+            const naturalWidth = periodLabel.offsetWidth;
+            const availableWidth = Math.max(2, visibleWidth - 6);
+            if(naturalWidth > availableWidth){
+                const fit = Math.max(0.55, availableWidth / naturalWidth);
+                periodLabel.style.transform =
+                    `translate(-50%,-50%) scaleX(${fit})`;
+            }
+        }else{
+            periodsLayer.appendChild(box);
+        }
+    });
+
+    // El present és l'edat 0 i, per tant, es mou amb l'eix.
+    const today = document.createElement("div");
+    today.className = "label";
+    today.style.left = `${width * zoom + offsetX}px`;
+    today.textContent = "Avui";
+    labels.appendChild(today);
+
+    // Escala dinàmica: les marques es reposicionen però no s'escalen.
+    for(let age = first; age <= maxAge + step*0.000001; age += step){
+        const contentX = width * (1 - age / AGE);
+        const screenX = contentX * zoom + offsetX;
+
+        if(screenX < -100 || screenX > width + 100) continue;
+
+        const tick = document.createElement("div");
+        tick.className = "tick";
+        tick.style.left = `${screenX}px`;
+        ticks.appendChild(tick);
+
+        const label = document.createElement("div");
+        label.className = "label";
+        label.style.left = `${screenX}px`;
+        label.textContent = (Math.abs(age) < 1e-9) ? "Avui" : formatAge(age);
+        labels.appendChild(label);
+    }
+
+    eventsLayer.innerHTML = "";
+    eventsLayer.setAttribute("width", width);
+    eventsLayer.setAttribute("height", 180);
+    eventsLayer.setAttribute("viewBox", `0 0 ${width} 180`);
+
+    events.forEach(event => {
+        const contentX = width * (1 - event.age / AGE);
+        const screenX = contentX * zoom + offsetX;
+
+        if(screenX < -150 || screenX > width + 150) return;
+
+        // No desplacem artificialment els esdeveniments als marges:
+        // el Big Bang ha de coincidir exactament amb l'inici de l'eix.
+        const visibleX = screenX;
+
+        const circle = document.createElementNS("http://www.w3.org/2000/svg","circle");
+        circle.setAttribute("class","eventCircle");
+        circle.setAttribute("cx",visibleX);
+        circle.setAttribute("cy",70);
+        circle.setAttribute("r",6);
+        circle.setAttribute("fill",event.color);
+        circle.addEventListener("pointerdown",eventClick=>{
+            eventClick.stopPropagation();
+            eventClick.preventDefault();
+            showEventInfo(event);
+        });
+        circle.addEventListener("click",eventClick=>{
+            eventClick.stopPropagation();
+            showEventInfo(event);
+        });
+        eventsLayer.appendChild(circle);
+
+        const icon = document.createElementNS("http://www.w3.org/2000/svg","text");
+        icon.setAttribute("class","eventIcon");
+        icon.setAttribute("x",visibleX);
+        icon.setAttribute("y",48);
+        icon.setAttribute("text-anchor","middle");
+        icon.setAttribute("dominant-baseline","middle");
+        icon.textContent=event.icon;
+        icon.style.cursor="pointer";
+        icon.style.pointerEvents="all";
+        icon.addEventListener("pointerdown",eventClick=>{
+            eventClick.stopPropagation();
+            eventClick.preventDefault();
+            showEventInfo(event);
+        });
+        icon.addEventListener("click",eventClick=>{
+            eventClick.stopPropagation();
+            showEventInfo(event);
+        });
+        eventsLayer.appendChild(icon);
+    });
+}
+
+viewport.addEventListener("wheel", event=>{
+    event.preventDefault();
+
+    const rect = viewport.getBoundingClientRect();
+    const width = viewport.clientWidth;
+    const mouseX = event.clientX - rect.left;
+
+    // Coordenada temporal sota el cursor abans del zoom.
+    const contentX = (mouseX - offsetX) / zoom;
+
+    const factor = event.deltaY < 0 ? 1.25 : 0.8;
+    const newZoom = Math.max(
+        MIN_ZOOM,
+        Math.min(MAX_ZOOM, zoom * factor)
+    );
+
+    if(newZoom === zoom) return;
+
+    zoom = newZoom;
+
+    // El mateix punt temporal queda sota el mateix píxel.
+    offsetX = mouseX - contentX * zoom;
+    clampOffset(width);
+
+    render();
+},{passive:false});
+
+viewport.addEventListener("pointerdown", event=>{
+    if(event.target.closest && event.target.closest(".eventCircle,.eventLabel")){
+        return;
+    }
+    event.preventDefault();
+
+    dragging = true;
+    dragStartX = event.clientX;
+    offsetStart = offsetX;
+
+    viewport.classList.add("dragging");
+    viewport.setPointerCapture(event.pointerId);
+});
+
+viewport.addEventListener("pointermove", event=>{
+    if(!dragging) return;
+
+    event.preventDefault();
+    offsetX = offsetStart + (event.clientX - dragStartX);
+    clampOffset(viewport.clientWidth);
+
+    render();
+});
+
+function stopDrag(event){
+    if(!dragging) return;
+
+    dragging = false;
+    viewport.classList.remove("dragging");
+
+    try{
+        viewport.releasePointerCapture(event.pointerId);
+    }catch(e){}
+}
+
+viewport.addEventListener("pointerup", stopDrag);
+viewport.addEventListener("pointercancel", stopDrag);
+window.addEventListener("resize", render);
+
+render();
+</script>
+</body>
+</html>
