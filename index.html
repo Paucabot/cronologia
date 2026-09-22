@@ -13,8 +13,8 @@ h1{margin:0;font-size:26px;font-weight:650}
 .viewport{width:92%;height:260px;overflow:visible;position:relative;cursor:grab;touch-action:none;user-select:none}
 .viewport.dragging{cursor:grabbing}
 .timeline{position:absolute;left:0;top:40px;width:100%;height:180px;transform-origin:left top}
-.graphics{position:absolute;left:0;top:0;width:100%;height:180px;transform-origin:left top;overflow:visible}
-.line{position:absolute;left:0;top:70px;height:4px;width:100%;background:#172033;border-radius:4px}
+.graphics{position:absolute;left:0;top:0;width:100%;height:180px;transform-origin:left top}
+.line{position:absolute;left:0;right:0;top:70px;height:4px;background:#172033;border-radius:4px}
 .tick{position:absolute;top:62px;width:2px;height:20px;background:#172033;transform:translateX(-50%)}
 .ticks{position:absolute;left:0;top:0;width:100%;height:180px;pointer-events:none}
 .labels{position:absolute;left:0;top:0;width:100%;height:180px;pointer-events:none}
@@ -215,12 +215,9 @@ function render(){
     const width = viewport.clientWidth;
     clampOffset(width);
 
-    // La línia té una longitud explícita: width × zoom.
-    // Així el seu inici i el seu final coincideixen exactament amb
-    // Big Bang i Avui, sense dependre de l'escalat CSS.
-    graphics.style.transform = `translateX(${offsetX}px)`;
-    const axisLine = graphics.querySelector(".line");
-    axisLine.style.width = `${width * zoom}px`;
+    // La línia és l'únic element que es transforma.
+    graphics.style.transform =
+        `translateX(${offsetX}px) scaleX(${zoom})`;
 
     // Calculam quin interval temporal és visible.
     // x = 0 correspon a 13.800 Ma; x = width correspon a 0 Ma.
