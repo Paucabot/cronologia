@@ -494,7 +494,8 @@ function render(){
         ? logTicks.filter(age => age >= minAge && age <= maxAge)
         : (() => {
             const a=[];
-            for(let age = first; age <= maxAge + step*0.000001; age += step) a.push(age);
+            const count = Math.max(0, Math.floor((maxAge - first) / step + 1e-9));
+            for(let i=0; i<=count; i++) a.push(first + i * step);
             return a;
         })();
 
@@ -512,7 +513,7 @@ function render(){
         const label = document.createElement("div");
         label.className = "label";
         label.style.left = `${screenX}px`;
-        label.textContent = (age === 0) ? "Avui" : formatAge(age);
+        label.textContent = (age === 0) ? "Avui" : formatAge(age, step);
         labels.appendChild(label);
     });
 
